@@ -141,6 +141,12 @@ NOTES:
  *   Legal ops: ~ &
  *   Max ops: 14
  *   Rating: 1
+ * 思路的关键在于将两数x，y各自机器级01序列中同一位置上不同的地方记录下来
+ * 分为4种情况：
+ * y	…	1	…	1	…	0	…	0
+ * x	…	1	…	0	…	1	…	0
+ * 首先将表中第2，3列分别以1的方式记录下来即代码第一二行
+ * 但是由于不能直接使用加法和位级或运算，所以，这是只需要将上一操作得到的两个01序列各位取反（~）再相与，最后再做一次取反即可
  */
 int bitXor(int x, int y) {
   return ~(x&y)&~(~x&~y);
@@ -152,7 +158,7 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-  return 1<<31;
+  return 1<<31;//0x8000 0000最小的负数，补码
 }
 //2
 /*
@@ -163,7 +169,7 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return (!(x+1+x+1))&(!!(x+1));
+  return (!(x+1+x+1))&(!!(x+1));//0x
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
