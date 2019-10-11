@@ -141,6 +141,7 @@ NOTES:
  *   Legal ops: ~ &
  *   Max ops: 14
  *   Rating: 1
+ * 由离散数学逻辑命题逻辑可得，异或如下
  * 思路的关键在于将两数x，y各自机器级01序列中同一位置上不同的地方记录下来
  * 分为4种情况：
  * y	…	1	…	1	…	0	…	0
@@ -157,8 +158,13 @@ int bitXor(int x, int y) {
  *   Max ops: 4
  *   Rating: 1
  */
+
+/*
+ * 思路：0x8000 0000最小的负数，补码
+ */
+
 int tmin(void) {
-  return 1<<31;//0x8000 0000最小的负数，补码
+  return 1<<31;
 }
 //2
 /*
@@ -168,8 +174,22 @@ int tmin(void) {
  *   Max ops: 10
  *   Rating: 1
  */
+
+/*
+isTmax:如果是补码最大值就返回1，否则返回0，Tmax是  0x7FFFFFFF，
+
+思路：核心是利用溢出。
+
+想要返回0，1，那么肯定要用到 ! 运算符，一个常数的非是0，除了!0=1，
+所以，我们需要构造出来一个表达式，让x为Tmax时候值刚好为0，其他情况值都为1，
+这样子取非，就可以得到结果了。我这里想的是如果X是Tmax，那么~x就是Tmin，
+所以判断~x是不是Tmin，利用溢出来判断，给~x加上-1（~0），
+Tmin情况下会产生溢出，然后会进行符号截断，Tmin-1 = Tmax，
+再利用Tmax+Tmin+1 = 0得到我们想要的0，再取非即可。
+
+*/
 int isTmax(int x) {
-  return (!(x+1+x+1))&(!!(x+1));//0x
+  return !((x^(~(x+1)))|(!(~x)));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -193,6 +213,11 @@ int allOddBits(int x) {
  *   Max ops: 5
  *   Rating: 2
  */
+
+/*
+ * 由于用补码表示，取反加一即可
+ */
+
 int negate(int x) {
   return (~x+1);;
 }
@@ -206,6 +231,11 @@ int negate(int x) {
  *   Max ops: 15
  *   Rating: 3
  */
+
+/* 
+ * x需要>=’0’且<=’9’，将x与临界点作差，然后判断符号位的为0还是1即可
+ */
+
 int isAsciiDigit(int x) {
   return (!((x+~48+1)>>31))&!!((x+~58+1)>>31);
 }
@@ -216,6 +246,14 @@ int isAsciiDigit(int x) {
  *   Max ops: 16
  *   Rating: 3
  */
+
+/*
+ * 首先使用t=!x，当x为0时返回1，当x不为0时，返回0，
+ * 根据题意得到( _ &y)|( _ &z)，首先空1，当x不为0，即t=0时，
+ * 需要t转换为0xffffffff（-1），当t=1时，需要将t转换为0x0（0），
+ * 将t-1即可，得到空1为“!x+~1+1”，同理空2为“~!x+1”
+ */
+
 int conditional(int x, int y, int z) {
   return ((!x+~1+1)&y)|((~!x+1)&z);
 }
@@ -226,6 +264,14 @@ int conditional(int x, int y, int z) {
  *   Max ops: 24
  *   Rating: 3
  */
+
+/* 
+ * 直接用y-x可能会超出int的表示范围，故而：
+ * A、在x与y同号的情况下转换为p=y-x>=0，然后p符号位(p>>31）&1为0则返回1，符号位1则返回0；
+ * B、 异号时，只要x>=0，就要返回0，否则返回1，由(x>>31)&1能达到该效果；
+ * C、 c=a+b可作为x,y同号异号的判断
+ */
+
 int isLessOrEqual(int x, int y) {
   int a=x>>31;
 
@@ -250,6 +296,15 @@ int isLessOrEqual(int x, int y) {
  *   Max ops: 12
  *   Rating: 4 
  */
+
+/*
+ * 令y=~x+1，考虑x与y的符号位：
+ * A.   当x为0时，两者符号位都为0；
+ * B.   当x=0x8000 0000时，两者符号位都为1；
+ * C.   否则，两者符号位为01或10；
+ * D.   根据离散数学的真值表得出(~x)&(~y).
+ */
+
 int logicalNeg(int x) {
   return ((~(~x+1)&~x)>>31)&1;
 }
@@ -266,20 +321,14 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-	int value=x^(x<<1);
-	int count = 1 + (!!(value>>16)<<4);
-	int next = value>>(!!(value>>16)<<4);
-	
-	count = count + (!!(value>>8)<<3);
-	next = next>>(!!(next>>8)<<3);//条件左移，确定下一个操作数
-
-	count = count + (!!(value>>4)<<2);
- 	next = next>>(!!(next>>4)<<2);
-
-	count = count + (!!(value>>2)<<1);
-	next = next>>(!!(next>>2)<<1);
-
-	count = count + (value>>1)
+  int n = 0;
+  x ^= (x<<1);
+  n += ((!!(x&((~0)<<(n+16)))) << 4);
+  n += ((!!(x&((~0)<<(n+8)))) << 3);
+  n += ((!!(x&((~0)<<(n+4)))) << 2);
+  n += ((!!(x&((~0)<<(n+2)))) << 1);
+  n += (!!(x&((~0)<<(n+1))));
+  return n+1;
 }
 //float
 /* 
@@ -294,26 +343,13 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-	int SF = (1&(uf>>31))<<31;//符号位
- 	int exp = (uf>>23)&((1<<8)-1);//阶码
- 	int e23 = ((1<<23)-1);//23个1
- 	int EM = e23&uf;//尾数
- 	int if8exp = 1&((exp+1)>>8);//判断exp是否全1
- 	if(!(EM|exp)||if8exp)return uf;//0,NaN,无穷大的情况下返回自身
- 	if(!exp){//阶码全0
- 		 EM = (EM<<1)&e23;
- 		 if(1&(EM>>22)){//尾数最高位为1
- 		 exp = exp + 1;
-  		}
-  		exp = exp<<23;
-  	}
-  	else{
-  		exp = exp+1;
- 		if(if8exp){//加1后阶码溢出，返回无穷大
-   			EM=0;
-  		}
- 	}
- 	return SF|exp|EM;
+  int exp_ = (uf&0x7f800000)>>23;
+  int s_ = uf&0x80000000;
+  if(exp_ == 0) return (uf<<1)|s_;
+  if(exp_ == 255) return uf;
+  ++exp_;
+  if(exp_ == 255) return 0x7f800000|s_;
+  return (uf&0x807fffff)|(exp_<<23);
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -328,25 +364,20 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
- int SF = 1&(uf>>31);
- int e8 = (1<<8)-1;
- int e23 = (1<<23)-1;
- int exp = (uf>>23)&e8;
- int M = uf&e23;
- if((exp+1)>>8)return exp<<23;//如果exp为全1
- int final=0;
- if(exp){//规格化数，对隐藏的“1”进行处理
-  final=final+(1<<exp);
- }
- 
- int i = 23;
- while(M){//循环各位尾数乘以阶码，求和
-  final = final + (M&1)<<(exp-i);
-  i--;
-  M=M>>1;
- }
- if(SF)final = ~final+1;//如果uf为负数
- return final;
+  int s_    = uf>>31;
+  int exp_  = ((uf&0x7f800000)>>23)-127;
+  int frac_ = (uf&0x007fffff)|0x00800000; 
+  if(!(uf&0x7fffffff)) return 0;
+  
+  if(exp_ > 31) return 0x80000000;
+  if(exp_ < 0) return 0;
+  
+  if(exp_ > 23) frac_ <<= (exp_-23);
+  else frac_ >>= (23-exp_);
+
+  if(!((frac_>>31)^s_)) return frac_;
+  else if(frac_>>31) return 0x80000000;
+  else return ~frac_+1;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -362,12 +393,9 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-	int high = 1&((x-129)>>31);//x-129应该小于0
- 	int low1 = 1&((x+126)>>31);//对于规格化数x+126应该大于或等于0
- 	int low2 = !(1&((x+149)>>31));//对于如何包括非规格化数，x+129都应该大于或等于0
- 
- 	if(!high)return ((1<<8)-1)<<23;//大于上限（并非最大规格化数）
- 	if(high&&(!low1))return (x+127)<<23;//处于规格化数区间
- 	if(low1&&low2)return 1<<(x+149);//处于规格化数区间
-	 return 0;//小于最小规格化数
+  if(x<-127) return 0;
+  if(x>128) return 0x7f800000;
+  x += 127;
+  x = x << 23;
+  return x;
 }
