@@ -141,16 +141,13 @@ NOTES:
  *   Legal ops: ~ &
  *   Max ops: 14
  *   Rating: 1
- * 由离散数学逻辑命题逻辑可得，异或如下
- * 思路的关键在于将两数x，y各自机器级01序列中同一位置上不同的地方记录下来
- * 分为4种情况：
- * y	…	1	…	1	…	0	…	0
- * x	…	1	…	0	…	1	…	0
- * 首先将表中第2，3列分别以1的方式记录下来即代码第一二行
- * 但是由于不能直接使用加法和位级或运算，所以，这是只需要将上一操作得到的两个01序列各位取反（~）再相与，最后再做一次取反即可
+ */
+/* 
+ * 思路：根据离散数学的逻辑公式
+ * x^y = ~(x&y)&~(~x&~y)
  */
 int bitXor(int x, int y) {
-  return ~(x&y)&~(~x&~y);
+  return ~((~(x&~y))&(~(~x&y)));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -160,7 +157,8 @@ int bitXor(int x, int y) {
  */
 
 /*
- * 思路：0x8000 0000最小的负数，补码
+ * 思路：0x8000 0000为补码表示的最小的负数 -128
+ * 将1左移31位就可以得到
  */
 
 int tmin(void) {
@@ -174,20 +172,13 @@ int tmin(void) {
  *   Max ops: 10
  *   Rating: 1
  */
-
-/*
-isTmax:如果是补码最大值就返回1，否则返回0，Tmax是  0x7FFFFFFF，
-
-思路：核心是利用溢出。
-
-想要返回0，1，那么肯定要用到 ! 运算符，一个常数的非是0，除了!0=1，
-所以，我们需要构造出来一个表达式，让x为Tmax时候值刚好为0，其他情况值都为1，
-这样子取非，就可以得到结果了。我这里想的是如果X是Tmax，那么~x就是Tmin，
-所以判断~x是不是Tmin，利用溢出来判断，给~x加上-1（~0），
-Tmin情况下会产生溢出，然后会进行符号截断，Tmin-1 = Tmax，
-再利用Tmax+Tmin+1 = 0得到我们想要的0，再取非即可。
-
-*/
+/* 
+ * 思路：补码表示的最大值为127，即Tmax是  0x7FFFFFFF
+ * 判断相等使用异或操作，相等则为全零
+ * Tmax满足Tmax == ~(tmax+1)
+ * 不过要用|位或来排除同样满足条件的0xFFFFFFFF
+ * 如果两边有一处不满足条件，那么就无法让位或运算为0，从而输出1
+ */
 int isTmax(int x) {
   return !((x^(~(x+1)))|(!(~x)));
 }
@@ -199,12 +190,17 @@ int isTmax(int x) {
  *   Max ops: 12
  *   Rating: 2
  */
-
+/* 判断二进制数奇数位是否全为1
+ * 思路：若一个二进制数偶数位为0，奇数位为1，则这个数为0xAAAAAAAA
+ * 先将x=x&0xAAAAAAAA，将这个数偶数位为变为0，
+ * 之后x^0xAAAAAAAA判断该数是否为0xAAAAAAAA
+ * 就可以完成判断了
+ */
 int allOddBits(int x) {
-/**/
-   int y = x >> 16; x &= y;
-	y = x >> 8; x &= y;
-	return  ! ( (x & 0xAA) ^ 0xAA) ;
+  int mask = 0xAA | 0xAA << 8;
+  mask = mask | mask << 16;
+  x = x & mask;
+  return !(mask^x);
 }
 /* 
  * negate - return -x 
@@ -234,6 +230,7 @@ int negate(int x) {
 
 /* 
  * x需要>=’0’且<=’9’，将x与临界点作差，然后判断符号位的为0还是1即可
+ * 48 - 57为ascii码数字部分，右边用58是因为0的符号位算正数，所以要多减一次
  */
 
 int isAsciiDigit(int x) {
@@ -266,25 +263,20 @@ int conditional(int x, int y, int z) {
  */
 
 /* 
- * 直接用y-x可能会超出int的表示范围，故而：
- * A、在x与y同号的情况下转换为p=y-x>=0，然后p符号位(p>>31）&1为0则返回1，符号位1则返回0；
- * B、 异号时，只要x>=0，就要返回0，否则返回1，由(x>>31)&1能达到该效果；
- * C、 c=a+b可作为x,y同号异号的判断
+ * 直接用y-x可能会超出int的表示范围，故而分类讨论：
+ * A：在x与y同号的情况下转换为p=y-x>=0，然后p符号位(p>>31）&1为0则返回1，符号位1则返回0；
+ * B：异号时，只要x>=0，就要返回0，否则返回1，由(x>>31)&1能达到该效果；
+ * C：c=a+b可作为x,y同号异号的判断
+ * p = y - x,q判断p的符号
  */
 
 int isLessOrEqual(int x, int y) {
   int a=x>>31;
-
   int b=y>>31;
-
   int c=a+b;
-
   int p=y+(~x+1);
-
   int q=!((p>>31)&1);
-
   int r=(c&(a&1))|((~c)&q);
-
   return r;
 }
 //4
@@ -299,12 +291,11 @@ int isLessOrEqual(int x, int y) {
 
 /*
  * 令y=~x+1，考虑x与y的符号位：
- * A.   当x为0时，两者符号位都为0；
- * B.   当x=0x8000 0000时，两者符号位都为1；
- * C.   否则，两者符号位为01或10；
- * D.   根据离散数学的真值表得出(~x)&(~y).
+ * A：当x为0时，两者符号位都为0；
+ * B：当x=0x8000 0000时，两者符号位都为1；
+ * C：否则，两者符号位为01或10；
+ * D：根据离散数学的真值表得出(~x)&(~y).
  */
-
 int logicalNeg(int x) {
   return ((~(~x+1)&~x)>>31)&1;
 }
@@ -319,6 +310,10 @@ int logicalNeg(int x) {
  *  Legal ops: ! ~ & ^ | + << >>
  *  Max ops: 90
  *  Rating: 4
+ */
+/* 求表示补码的最少位数
+ * 思路：我们只需要异或相邻的数x^=(x<<1)，找出为1的最高位在哪一位就可以了
+ * 构造了一个函数g(n)去寻找0与1的分界线，寻找分界线使用了二分法，不断缩小排查范围
  */
 int howManyBits(int x) {
   int n = 0;
@@ -342,9 +337,24 @@ int howManyBits(int x) {
  *   Max ops: 30
  *   Rating: 4
  */
+/* 计算浮点数2*f，flaot_twice
+ * 思路：
+ * 1.若原数为非规格化小数或0时，处理小数部分
+ * if(exp_ == 0) return (uf<<1)|s_;
+ * 2.若为NaN或INF时
+ * if(exp_ == 255) return uf;
+ * 直接返回。
+ * 3.若为其他情况，即指数加一
+ * ++exp_,
+ * 4.若加了之后为INF时，保证其不为NaN，即小数部分全为0，
+ * if(exp_ == 255) return 0x7f800000|s_;
+ * 5.最后为一般情况，直接输出2*f
+ * return (uf&0x807fffff)|(exp_<<23);
+ */
+
 unsigned floatScale2(unsigned uf) {
-  int exp_ = (uf&0x7f800000)>>23;
-  int s_ = uf&0x80000000;
+  int exp_ = (uf&0x7f800000)>>23;//阶码
+  int s_ = uf&0x80000000;//数符
   if(exp_ == 0) return (uf<<1)|s_;
   if(exp_ == 255) return uf;
   ++exp_;
@@ -362,6 +372,24 @@ unsigned floatScale2(unsigned uf) {
  *   Legal ops: Any integer/unsigned operations incl. ||, &&. also if, while
  *   Max ops: 30
  *   Rating: 4
+ */
+/* 
+ * 将浮点数转换为有符号整数，float_f2i
+ * 思路：
+ * 先将浮点数分成三段，
+ * 符号部分s_ = uf>>31，
+ * 指数大小exp_ = ((uf&0x7f800000)>>23)-127，
+ * 获取小数部分，并补上浮点数缺省的1，
+ * frac_ = (uf&0x007fffff)|0x00800000。
+ * 处理特殊情况：
+ * 若全为0是返回0，
+ * 若指数大于31，整数无法表示溢出返回0x80000000。
+ * 若指数小于0，该数0<x<1返回0
+ * 若指数部分大于23则将小数部分向左移动frac_ <<= (exp_ - 23) ，exp_代表指数大小。
+ * 若指数部分小于23则将小数部分向右移动frac_ >>= (23 - exp_) ，exp_代表指数大小。
+ * 考虑最后符号，正数转换为负数不会产生溢出。
+ * 若frac_为正数，则根据s_调整正负输出即可。
+ * 若frac_为负数，唯一正确情况为0x80000000。
  */
 int floatFloat2Int(unsigned uf) {
   int s_    = uf>>31;
@@ -391,6 +419,13 @@ int floatFloat2Int(unsigned uf) {
  *   Legal ops: Any integer/unsigned operations incl. ||, &&. Also if, while 
  *   Max ops: 30 
  *   Rating: 4
+ */
+/* 计算浮点数2.0^x
+ * 思路：
+ * 一般情况下，
+ * 把x当成浮点数的阶码就可以了
+ * 考虑特殊情况，
+ * 指数exp<-127和 exp>128，分别返回0和0x7f800000
  */
 unsigned floatPower2(int x) {
   if(x<-127) return 0;
