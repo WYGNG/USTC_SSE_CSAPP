@@ -1,0 +1,3 @@
+movl $0x46c9779b, 0x0804a1dc
+pushl $0x08048d60
+ret
